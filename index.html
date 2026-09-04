@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f6f5f1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="续记">
+  <title>续记</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icon.svg">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div id="app" aria-live="polite"><div class="loading">正在打开续记…</div></div>
+
+  <dialog id="record-dialog" class="sheet">
+    <form id="record-form" method="dialog">
+      <header class="sheet-head"><button type="button" class="text-button" data-action="close-record">取消</button><h2 id="record-dialog-title">新建调整</h2><button type="submit" class="text-button primary-text">保存</button></header>
+      <div class="sheet-body">
+        <input type="hidden" name="id">
+        <label class="field"><span>调整了什么</span><textarea name="body" rows="5" maxlength="20000" required placeholder="例如：核心关键词出价从 1.20 元提高到 1.45 元"></textarea></label>
+        <label class="field"><span>为什么调整 <small>选填</small></span><textarea name="reason" rows="3" maxlength="10000" placeholder="记录这次调整的原因或预期"></textarea></label>
+        <div class="field-row">
+          <label class="field"><span>状态</span><select name="status"><option value="watching">观察中</option><option value="effective">有效</option><option value="ineffective">无效</option><option value="unclear">无法判断</option></select></label>
+          <label class="field"><span>调整时间</span><input type="datetime-local" name="createdAt" required></label>
+        </div>
+        <label class="field"><span>标签 <small>选填，用空格分开</small></span><input name="tags" maxlength="300" placeholder="关键词 加价 测试"></label>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="reply-dialog" class="sheet compact-sheet">
+    <form id="reply-form" method="dialog">
+      <header class="sheet-head"><button type="button" class="text-button" data-action="close-reply">取消</button><h2>添加追评</h2><button type="submit" class="text-button primary-text">保存</button></header>
+      <div class="sheet-body"><input type="hidden" name="updateId"><label class="field"><span>追评内容</span><textarea name="body" rows="4" maxlength="10000" required autofocus placeholder="补充影响因素或新的判断"></textarea></label></div>
+    </form>
+  </dialog>
+
+  <dialog id="import-dialog" class="confirm-dialog">
+    <div class="confirm-body"><h2>恢复备份</h2><div id="import-summary"></div><p class="muted">“合并”会保留较新的同名记录；“完全替换”会先删除当前设备中的全部记录。</p><div class="confirm-actions"><button type="button" class="secondary-button" data-action="cancel-import">取消</button><button type="button" class="secondary-button" data-action="replace-import">完全替换</button><button type="button" class="primary-button" data-action="merge-import">合并恢复</button></div></div>
+  </dialog>
+
+  <input id="backup-input" type="file" accept="application/json,.json" hidden>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>

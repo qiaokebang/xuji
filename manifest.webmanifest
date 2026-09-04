@@ -1,0 +1,12 @@
+{
+  "name": "续记 · 直通车调整日志",
+  "short_name": "续记",
+  "description": "本地保存的直通车实验记录与追踪工具",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f6f5f1",
+  "theme_color": "#f6f5f1",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
