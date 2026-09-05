@@ -284,7 +284,7 @@ app.addEventListener("submit", async (event) => {
   const result = organizeMetrics(new FormData(event.target).get("body"));
   organizedUpdateForm.elements.body.value = result.text;
   organizeOriginal.textContent = result.original;
-  organizeSummary.textContent = result.recognized === METRIC_FIELDS.length ? "已识别全部 12 项指标，请核对数值后保存。" : result.recognized ? "已识别 " + result.recognized + "/12 项；请检查未识别项：" + result.missing.join("、") : "未识别到固定指标，已保留原文，请检查后保存。";
+  organizeSummary.textContent = result.recognized === METRIC_FIELDS.length ? "已识别全部 12 项指标，请核对数值后保存。" : result.recognized ? "已识别 " + result.recognized + "/12 项；以下字段已留空，请手动填写：" + result.missing.join("、") : "未识别到固定指标，已保留全部 12 项空字段，请手动填写。";
   organizeSummary.classList.toggle("warning", result.recognized !== METRIC_FIELDS.length);
   organizedUpdateDialog.showModal();
 });

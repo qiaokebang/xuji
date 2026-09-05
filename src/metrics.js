@@ -1,5 +1,12 @@
 const DIGITS = { 零: 0, 〇: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
 const UNITS = { 十: 10, 百: 100, 千: 1000 };
+const PHONETIC_REPLACEMENTS = [
+  ["架构成本", "加购成本"], ["家购成本", "加购成本"], ["加沟成本", "加购成本"],
+  ["架构率", "加购率"], ["家购率", "加购率"], ["加沟率", "加购率"], ["构率", "加购率"],
+  ["从购物车数", "总购物车数"], ["总购物车树", "总购物车数"],
+  ["平均点机花费", "平均点击花费"], ["平均点几花费", "平均点击花费"],
+  ["点机率", "点击率"], ["点几率", "点击率"], ["话费", "花费"]
+];
 
 export const METRIC_FIELDS = [
   { key: "cutoff", label: "统计截止", type: "time", aliases: ["统计截止", "统计截至", "截止时间", "截至时间", "统计时间"] },
@@ -67,21 +74,26 @@ function parseTime(value) {
 
 export function organizeMetrics(input) {
   const original = String(input || "").trim().normalize("NFKC");
+  const speech = PHONETIC_REPLACEMENTS.reduce((text, [heard, intended]) => text.replaceAll(heard, intended), original);
   labelPattern.lastIndex = 0;
-  const matches = [...original.matchAll(labelPattern)];
+  const matches = [...speech.matchAll(labelPattern)];
   const values = new Map();
   const invalid = [];
   matches.forEach((match, index) => {
     const field = aliasMap.get(match[0].toLowerCase());
-    const segment = original.slice(match.index + match[0].length, matches[index + 1]?.index ?? original.length);
+    const segment = speech.slice(match.index + match[0].length, matches[index + 1]?.index ?? speech.length);
     const value = field.type === "time" ? parseTime(segment) : parseNumber(segment);
     if (value === null) invalid.push(field.label);
     else values.set(field.key, value);
   });
-  const text = METRIC_FIELDS.filter((field) => values.has(field.key)).map((field) => field.label + "：" + values.get(field.key) + (field.unit || "")).join("\n");
+  if (!values.has("cutoff")) {
+    const standaloneTime = parseTime(speech);
+    if (standaloneTime) values.set("cutoff", standaloneTime);
+  }
+  const text = METRIC_FIELDS.map((field) => field.label + "：" + (values.has(field.key) ? values.get(field.key) + (field.unit || "") : "")).join("\n");
   return {
     original,
-    text: text || original,
+    text,
     recognized: values.size,
     missing: METRIC_FIELDS.filter((field) => !values.has(field.key)).map((field) => field.label),
     invalid: [...new Set(invalid)]
