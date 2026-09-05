@@ -56,6 +56,13 @@ export function formatElapsed(start, end) {
   return `${Math.floor(seconds / 31536000)} 年`;
 }
 
+export function formatBackupFilename(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  const pad = (part) => String(part).padStart(2, "0");
+  const stamp = `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+  return `续记备份-${stamp}.json`;
+}
+
 export function validateRecord(record) {
   if (!record || typeof record !== "object" || typeof record.id !== "string" || !record.id || !text(record.body, 20000)) return false;
   if (!Object.hasOwn(STATUSES, record.status) || !validDate(record.createdAt) || !validDate(record.updatedAt) || !Array.isArray(record.tags) || record.tags.length > 10 || !Array.isArray(record.updates)) return false;

@@ -72,7 +72,12 @@ function parseTime(value) {
   return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59 ? String(hour).padStart(2, "0") + ":" + String(minute).padStart(2, "0") : null;
 }
 
-export function organizeMetrics(input) {
+function clockTime(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? "00:00" : String(date.getHours()).padStart(2, "0") + ":" + String(date.getMinutes()).padStart(2, "0");
+}
+
+export function organizeMetrics(input, recordedAt = new Date()) {
   const original = String(input || "").trim().normalize("NFKC");
   const speech = PHONETIC_REPLACEMENTS.reduce((text, [heard, intended]) => text.replaceAll(heard, intended), original);
   labelPattern.lastIndex = 0;
@@ -86,11 +91,8 @@ export function organizeMetrics(input) {
     if (value === null) invalid.push(field.label);
     else values.set(field.key, value);
   });
-  if (!values.has("cutoff")) {
-    const standaloneTime = parseTime(speech);
-    if (standaloneTime) values.set("cutoff", standaloneTime);
-  }
-  const text = METRIC_FIELDS.map((field) => field.label + "：" + (values.has(field.key) ? values.get(field.key) + (field.unit || "") : "")).join("\n");
+  values.set("cutoff", clockTime(recordedAt));
+  const text = METRIC_FIELDS.map((field) => field.label + "：" + (values.has(field.key) ? values.get(field.key) : "0") + (field.unit || "")).join("\n");
   return {
     original,
     text,

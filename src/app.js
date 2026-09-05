@@ -1,4 +1,4 @@
-import { addReply, addUpdate, createBackup, createRecord, formatElapsed, mergeRecords, STATUSES, verifyBackup } from "./domain.js";
+import { addReply, addUpdate, createBackup, createRecord, formatBackupFilename, formatElapsed, mergeRecords, STATUSES, verifyBackup } from "./domain.js";
 import { deleteRecord, getMeta, getRecords, importRecords, openDatabase, saveRecord, setBackupComplete } from "./db.js";
 import { METRIC_FIELDS, organizeMetrics } from "./metrics.js";
 
@@ -21,6 +21,7 @@ let records = [];
 let meta = {};
 let view = { screen: "feed", recordId: null, query: "", status: "all", menu: false, search: false };
 let pendingImport = null;
+let updateStartedAt = null;
 const SWIPE_ACTION_WIDTH = 80;
 let swipeGesture = null;
 let suppressCardClickUntil = 0;
@@ -28,6 +29,7 @@ let suppressCardClickUntil = 0;
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
 const multiline = (value) => escapeHtml(value).replace(/\n/g, "<br>");
 const formatDate = (value, full = false) => new Intl.DateTimeFormat("zh-CN", full ? { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" } : { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+const formatClock = (value) => new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false }).format(value);
 const localDateTime = (value = new Date()) => new Date(value.getTime() - value.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 
 function notify(message) {
@@ -98,7 +100,7 @@ function renderDetail() {
         ${record.updates.length ? record.updates.map((update) => updateItem(record, update)).join("") : `<div class="timeline-empty">还没有后续观察。调整产生变化后，在下方继续记录。</div>`}
       </section>
     </main>
-    <form id="update-form" class="composer"><textarea name="body" rows="1" maxlength="10000" required placeholder="语音输入数据或记录后续反应…" aria-label="续记内容"></textarea><button type="submit">整理</button></form>
+    <form id="update-form" class="composer"><div class="composer-entry"><time id="composer-cutoff">截止 ${formatClock(updateStartedAt || new Date())}</time><textarea name="body" rows="1" maxlength="10000" required placeholder="语音输入数据或记录后续反应…" aria-label="续记内容"></textarea></div><button type="submit">整理</button></form>
   </div>`;
 }
 
@@ -116,6 +118,7 @@ function render() {
 function goFeed() {
   if (view.screen === "detail" && history.state?.recordId) return history.back();
   view = { ...view, screen: "feed", recordId: null, menu: false };
+  updateStartedAt = null;
   history.replaceState({ screen: "feed" }, "", location.pathname);
   render();
 }
@@ -150,12 +153,11 @@ async function exportBackup() {
   view.menu = false;
   render();
   const payload = await createBackup(records);
-  const date = payload.exportedAt.replace(/[-:]/g, "").slice(0, 13).replace("T", "-");
-  const file = new File([JSON.stringify(payload, null, 2)], `续记备份-${date}.json`, { type: "application/json" });
+  const file = new File([JSON.stringify(payload, null, 2)], formatBackupFilename(payload.exportedAt), { type: "application/json" });
   try {
     let shared = false;
     if (navigator.canShare?.({ files: [file] })) {
-      try { await navigator.share({ files: [file], title: "续记完整备份" }); shared = true; }
+      try { await navigator.share({ files: [file] }); shared = true; }
       catch (error) { if (error.name === "AbortError") throw error; }
     }
     if (!shared) {
@@ -245,7 +247,7 @@ app.addEventListener("click", async (event) => {
   if (action === "toggle-search") { view.search = !view.search; view.menu = false; return render(); }
   if (action === "toggle-menu") { view.menu = !view.menu; view.search = false; return render(); }
   if (action === "new-record") return openRecordDialog();
-  if (action === "open-record") { view = { ...view, screen: "detail", recordId: target.dataset.id, menu: false }; history.pushState({ screen: "detail", recordId: target.dataset.id }, "", `#${target.dataset.id}`); return render(); }
+  if (action === "open-record") { updateStartedAt = null; view = { ...view, screen: "detail", recordId: target.dataset.id, menu: false }; history.pushState({ screen: "detail", recordId: target.dataset.id }, "", `#${target.dataset.id}`); return render(); }
   if (action === "back") return goFeed();
   if (action === "edit-record") return openRecordDialog(activeRecord());
   if (action === "export-backup") return exportBackup();
@@ -278,13 +280,19 @@ app.addEventListener("input", (event) => {
   }
 });
 
+app.addEventListener("focusin", (event) => {
+  if (!event.target.matches("#update-form textarea") || updateStartedAt) return;
+  updateStartedAt = new Date();
+  document.querySelector("#composer-cutoff").textContent = "截止 " + formatClock(updateStartedAt);
+});
+
 app.addEventListener("submit", async (event) => {
   if (event.target.id !== "update-form") return;
   event.preventDefault();
-  const result = organizeMetrics(new FormData(event.target).get("body"));
+  const result = organizeMetrics(new FormData(event.target).get("body"), updateStartedAt || new Date());
   organizedUpdateForm.elements.body.value = result.text;
   organizeOriginal.textContent = result.original;
-  organizeSummary.textContent = result.recognized === METRIC_FIELDS.length ? "已识别全部 12 项指标，请核对数值后保存。" : result.recognized ? "已识别 " + result.recognized + "/12 项；以下字段已留空，请手动填写：" + result.missing.join("、") : "未识别到固定指标，已保留全部 12 项空字段，请手动填写。";
+  organizeSummary.textContent = result.recognized === METRIC_FIELDS.length ? "已识别全部 12 项指标，请核对数值后保存。" : "已识别 " + result.recognized + "/12 项；未识别字段已自动填 0：" + result.missing.join("、");
   organizeSummary.classList.toggle("warning", result.recognized !== METRIC_FIELDS.length);
   organizedUpdateDialog.showModal();
 });
@@ -327,6 +335,7 @@ organizedUpdateForm.addEventListener("submit", async (event) => {
   if (!body) return notify("请填写续记内容");
   try {
     await updateCurrent((record) => addUpdate(record, body), "续记已保存");
+    updateStartedAt = null;
     organizedUpdateDialog.close();
   } catch (error) { notify(error.message); }
 });
@@ -361,6 +370,7 @@ async function restoreImport(replace) {
 }
 
 window.addEventListener("popstate", () => {
+  updateStartedAt = null;
   document.querySelectorAll("dialog[open]").forEach((dialog) => dialog.close());
   const recordId = history.state?.recordId;
   view = recordId && records.some((record) => record.id === recordId) ? { ...view, screen: "detail", recordId, menu: false } : { ...view, screen: "feed", recordId: null, menu: false };
