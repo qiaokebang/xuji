@@ -44,8 +44,12 @@ button { cursor: pointer; }
 .backup-notice { width: 100%; min-height: 46px; margin: 0 0 12px; padding: 10px 13px; border: 0; border-radius: 13px; display: flex; justify-content: space-between; gap: 8px; align-items: center; background: var(--accent-soft); color: var(--accent); text-align: left; font-size: 13px; }
 .backup-notice span { white-space: nowrap; font-weight: 600; }
 .record-card, .origin-card { padding: 17px; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); }
-.record-card { cursor: pointer; }
-.record-card:active { transform: scale(.995); }
+.swipe-row { --swipe-x: 0px; position: relative; margin-bottom: 12px; overflow: hidden; border-radius: 22px; background: var(--danger); }
+.swipe-row .record-card { position: relative; z-index: 1; width: 100%; margin-bottom: 0; transform: translateX(var(--swipe-x)); transition: transform .2s ease; touch-action: pan-y; cursor: pointer; }
+.swipe-row.open, .swipe-row:focus-within { --swipe-x: -80px; }
+.swipe-row.dragging .record-card { transition: none; }
+.swipe-row:not(.open):not(.dragging) .record-card:active { transform: scale(.995); }
+.swipe-delete { position: absolute; z-index: 0; top: 0; right: 0; bottom: 0; width: 80px; border: 0; background: var(--danger); color: #fff; font-weight: 600; }
 .record-meta { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 11px; }
 .record-meta time, .timeline-item time { color: var(--muted); font-size: 12px; }
 .status { padding: 0; border: 0; background: transparent; color: var(--accent); font-size: 13px; font-weight: 600; }
@@ -55,6 +59,7 @@ button { cursor: pointer; }
 .status-unclear { color: var(--warn); }
 .record-card h2, .origin-card h2 { margin: 0 0 8px; font-size: 17px; line-height: 1.55; font-weight: 600; }
 .origin-card h2 { font-size: 19px; }
+.record-edit { display: block; min-width: 44px; min-height: 44px; margin: -4px -6px -10px auto; padding: 0; border: 0; background: transparent; color: var(--accent); font-size: 13px; font-weight: 600; }
 .reason { margin: 0 0 13px; color: var(--muted); font-size: 14px; line-height: 1.6; }
 .tags { display: flex; flex-wrap: wrap; gap: 7px; margin: 10px 0; color: var(--accent); font-size: 12px; }
 .record-foot { display: flex; justify-content: space-between; gap: 12px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
@@ -82,7 +87,6 @@ button { cursor: pointer; }
 .composer textarea { flex: 1; min-width: 0; max-height: 120px; padding: 11px 8px; resize: none; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 16px; }
 .composer button { min-width: 62px; min-height: 44px; border: 0; border-radius: 12px; background: var(--text); color: var(--surface); font-weight: 600; }
 .timeline-empty { padding: 36px 10px; color: var(--muted); font-size: 14px; line-height: 1.6; }
-.delete-record { width: 100%; min-height: 44px; margin: 14px 0 30px; border: 0; background: transparent; color: var(--danger); }
 .empty { padding: 72px 22px; text-align: center; color: var(--muted); }
 .empty-mark { width: 60px; height: 60px; margin: 0 auto 16px; display: grid; place-items: center; border-radius: 20px; background: var(--accent-soft); color: var(--accent); font-size: 24px; font-weight: 600; }
 .empty h2 { margin: 0 0 8px; color: var(--text); font-size: 18px; }
@@ -111,5 +115,5 @@ dialog::backdrop { background: rgb(0 0 0 / 42%); backdrop-filter: blur(2px); }
 .toast { position: fixed; z-index: 20; left: 50%; bottom: calc(88px + env(safe-area-inset-bottom)); transform: translateX(-50%); max-width: calc(100% - 32px); padding: 11px 16px; border-radius: 12px; background: var(--text); color: var(--surface); box-shadow: 0 6px 22px rgb(0 0 0 / 22%); font-size: 14px; white-space: nowrap; }
 .loading, .fatal { max-width: 520px; margin: 20vh auto; padding: 24px; text-align: center; color: var(--muted); }
 .fatal h1 { color: var(--text); font-size: 20px; }
-@media (max-width: 480px) { .record-card, .origin-card { border-radius: 18px; } .field-row { grid-template-columns: 1fr; gap: 0; } }
+@media (max-width: 480px) { .record-card, .origin-card, .swipe-row { border-radius: 18px; } .field-row { grid-template-columns: 1fr; gap: 0; } }
 @media (display-mode: standalone) { .topbar { padding-top: calc(8px + env(safe-area-inset-top)); } }
