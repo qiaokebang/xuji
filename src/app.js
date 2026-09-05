@@ -14,6 +14,9 @@ let records = [];
 let meta = {};
 let view = { screen: "feed", recordId: null, query: "", status: "all", menu: false, search: false };
 let pendingImport = null;
+const SWIPE_ACTION_WIDTH = 80;
+let swipeGesture = null;
+let suppressCardClickUntil = 0;
 
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
 const multiline = (value) => escapeHtml(value).replace(/\n/g, "<br>");
@@ -60,13 +63,17 @@ function renderFeed() {
 
 function recordCard(record) {
   const latest = record.updates.at(-1);
-  return `<article class="record-card" data-action="open-record" data-id="${escapeHtml(record.id)}">
+  return `<div class="swipe-row"><button class="swipe-delete" data-action="delete-record-from-feed" data-id="${escapeHtml(record.id)}" aria-label="删除这条调整记录">删除</button><article class="record-card" data-action="open-record" data-id="${escapeHtml(record.id)}">
     <div class="record-meta"><span class="status status-${record.status}">${STATUSES[record.status]}</span><time>${formatDate(record.createdAt)}</time></div>
     <h2>${multiline(record.body)}</h2>
     ${record.reason ? `<p class="reason">${multiline(record.reason)}</p>` : ""}
     ${record.tags.length ? `<div class="tags">${record.tags.map((tag) => `<span>#${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
     <div class="record-foot"><span>${latest ? `最新：${escapeHtml(latest.body)}` : "还没有后续观察"}</span><b>续记 ${record.updates.length}</b></div>
-  </article>`;
+  </article></div>`;
+}
+
+function closeSwipeRows(except) {
+  document.querySelectorAll(".swipe-row.open").forEach((row) => { if (row !== except) row.classList.remove("open"); });
 }
 
 function emptyState() {
@@ -77,13 +84,12 @@ function renderDetail() {
   const record = activeRecord();
   if (!record) return goFeed();
   app.innerHTML = `<div class="app-shell detail-shell">
-    <header class="topbar detail-head"><button class="icon-button back" data-action="back" aria-label="返回">‹</button><h1>调整详情</h1><button class="text-button primary-text" data-action="edit-record">编辑</button></header>
+    <header class="topbar detail-head"><button class="icon-button back" data-action="back" aria-label="返回">‹</button><h1>调整详情</h1><span aria-hidden="true"></span></header>
     <main class="detail">
-      <article class="origin-card"><div class="record-meta"><button class="status status-${record.status}" data-action="cycle-status">${STATUSES[record.status]}</button><time>${formatDate(record.createdAt, true)}</time></div><h2>${multiline(record.body)}</h2>${record.reason ? `<p class="reason">${multiline(record.reason)}</p>` : ""}${record.tags.length ? `<div class="tags">${record.tags.map((tag) => `<span>#${escapeHtml(tag)}</span>`).join("")}</div>` : ""}</article>
+      <article class="origin-card"><div class="record-meta"><button class="status status-${record.status}" data-action="cycle-status">${STATUSES[record.status]}</button><time>${formatDate(record.createdAt, true)}</time></div><h2>${multiline(record.body)}</h2>${record.reason ? `<p class="reason">${multiline(record.reason)}</p>` : ""}${record.tags.length ? `<div class="tags">${record.tags.map((tag) => `<span>#${escapeHtml(tag)}</span>`).join("")}</div>` : ""}<button class="record-edit" data-action="edit-record">编辑</button></article>
       <section class="timeline" aria-label="后续观察">
         ${record.updates.length ? record.updates.map((update) => updateItem(record, update)).join("") : `<div class="timeline-empty">还没有后续观察。调整产生变化后，在下方继续记录。</div>`}
       </section>
-      <button class="delete-record" data-action="delete-record">删除这条调整记录</button>
     </main>
     <form id="update-form" class="composer"><textarea name="body" rows="1" maxlength="10000" required placeholder="记录后续反应…" aria-label="续记内容"></textarea><button type="submit">续记</button></form>
   </div>`;
@@ -166,7 +172,60 @@ async function readBackup(file) {
   return payload;
 }
 
+app.addEventListener("pointerdown", (event) => {
+  const row = event.target.closest(".record-card")?.closest(".swipe-row");
+  if (!row || !event.isPrimary || event.button !== 0) return;
+  swipeGesture = { row, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, startOffset: row.classList.contains("open") ? SWIPE_ACTION_WIDTH : 0, offset: 0, horizontal: null };
+});
+
+app.addEventListener("pointermove", (event) => {
+  if (!swipeGesture || event.pointerId !== swipeGesture.pointerId) return;
+  const dx = swipeGesture.startX - event.clientX;
+  const dy = event.clientY - swipeGesture.startY;
+  if (swipeGesture.horizontal === null && Math.hypot(dx, dy) >= 8) {
+    swipeGesture.horizontal = Math.abs(dx) > Math.abs(dy);
+    if (swipeGesture.horizontal) { closeSwipeRows(swipeGesture.row); swipeGesture.row.setPointerCapture(event.pointerId); }
+  }
+  if (!swipeGesture.horizontal) return;
+  event.preventDefault();
+  swipeGesture.offset = Math.max(0, Math.min(SWIPE_ACTION_WIDTH, swipeGesture.startOffset + dx));
+  swipeGesture.row.classList.add("dragging");
+  swipeGesture.row.style.setProperty("--swipe-x", String(-swipeGesture.offset) + "px");
+}, { passive: false });
+
+app.addEventListener("pointerup", (event) => {
+  if (!swipeGesture || event.pointerId !== swipeGesture.pointerId) return;
+  if (swipeGesture.horizontal) {
+    swipeGesture.row.classList.remove("dragging");
+    swipeGesture.row.style.removeProperty("--swipe-x");
+    swipeGesture.row.classList.toggle("open", swipeGesture.offset >= SWIPE_ACTION_WIDTH * .4);
+    suppressCardClickUntil = Date.now() + 350;
+  }
+  swipeGesture = null;
+});
+
+app.addEventListener("pointercancel", () => {
+  if (!swipeGesture) return;
+  swipeGesture.row.classList.remove("dragging");
+  swipeGesture.row.style.removeProperty("--swipe-x");
+  swipeGesture = null;
+});
+
+app.addEventListener("scroll", (event) => { if (event.target.matches(".record-list")) closeSwipeRows(); }, true);
+
 app.addEventListener("click", async (event) => {
+  if (Date.now() < suppressCardClickUntil && event.target.closest(".record-card")) return;
+  const openRow = document.querySelector(".swipe-row.open");
+  if (openRow && !event.target.closest(".swipe-delete")) {
+    const clickedCard = event.target.closest(".record-card");
+    closeSwipeRows();
+    if (clickedCard) return;
+  }
+  if (view.menu && !event.target.closest(".more-menu, [data-action='toggle-menu']")) {
+    view.menu = false;
+    document.querySelector(".more-menu")?.remove();
+    document.querySelector("[data-action='toggle-menu']")?.setAttribute("aria-expanded", "false");
+  }
   const target = event.target.closest("[data-action], [data-filter]");
   if (!target) return;
   const action = target.dataset.action;
@@ -194,7 +253,7 @@ app.addEventListener("click", async (event) => {
   }
   if (action === "delete-update" && confirm("删除这条续记及其全部追评？")) return updateCurrent((record) => ({ ...record, updatedAt: new Date().toISOString(), updates: record.updates.filter((item) => item.id !== target.dataset.updateId) }), "续记已删除");
   if (action === "delete-reply" && confirm("删除这条追评？")) return updateCurrent((record) => ({ ...record, updatedAt: new Date().toISOString(), updates: record.updates.map((item) => item.id === target.dataset.updateId ? { ...item, replies: item.replies.filter((reply) => reply.id !== target.dataset.replyId) } : item) }), "追评已删除");
-  if (action === "delete-record" && confirm("删除整条调整记录及所有续记？此操作无法撤销。")) { await deleteRecord(db, view.recordId); return refresh().then(goFeed).then(() => notify("记录已删除")); }
+  if (action === "delete-record-from-feed" && confirm("删除整条调整记录及所有续记？此操作无法撤销。")) { await deleteRecord(db, target.dataset.id); await refresh(); notify("记录已删除"); }
 });
 
 app.addEventListener("input", (event) => {
