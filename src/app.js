@@ -1,5 +1,6 @@
 import { addReply, addUpdate, createBackup, createRecord, formatElapsed, mergeRecords, STATUSES, verifyBackup } from "./domain.js";
 import { deleteRecord, getMeta, getRecords, importRecords, openDatabase, saveRecord, setBackupComplete } from "./db.js";
+import { METRIC_FIELDS, organizeMetrics } from "./metrics.js";
 
 const app = document.querySelector("#app");
 const recordDialog = document.querySelector("#record-dialog");
@@ -8,6 +9,10 @@ const replyDialog = document.querySelector("#reply-dialog");
 const replyForm = document.querySelector("#reply-form");
 const updateEditDialog = document.querySelector("#update-edit-dialog");
 const updateEditForm = document.querySelector("#update-edit-form");
+const organizedUpdateDialog = document.querySelector("#organized-update-dialog");
+const organizedUpdateForm = document.querySelector("#organized-update-form");
+const organizeSummary = document.querySelector("#organize-summary");
+const organizeOriginal = document.querySelector("#organize-original");
 const importDialog = document.querySelector("#import-dialog");
 const backupInput = document.querySelector("#backup-input");
 const toast = document.querySelector("#toast");
@@ -65,7 +70,7 @@ function renderFeed() {
 
 function recordCard(record) {
   const latest = record.updates.at(-1);
-  return `<div class="swipe-row"><button class="swipe-delete" data-action="delete-record-from-feed" data-id="${escapeHtml(record.id)}" aria-label="删除这条调整记录">删除</button><article class="record-card" data-action="open-record" data-id="${escapeHtml(record.id)}">
+  return `<div class="swipe-row"><button class="swipe-delete" data-action="delete-record-from-feed" data-id="${escapeHtml(record.id)}" aria-label="删除这条调整记录"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M7 6l1 14h8l1-14M10 10v6M14 10v6"/></svg><span>删除</span></button><article class="record-card" data-action="open-record" data-id="${escapeHtml(record.id)}">
     <div class="record-meta"><span class="status status-${record.status}">${STATUSES[record.status]}</span><time>${formatDate(record.createdAt)}</time></div>
     <h2>${multiline(record.body)}</h2>
     ${record.reason ? `<p class="reason">${multiline(record.reason)}</p>` : ""}
@@ -93,7 +98,7 @@ function renderDetail() {
         ${record.updates.length ? record.updates.map((update) => updateItem(record, update)).join("") : `<div class="timeline-empty">还没有后续观察。调整产生变化后，在下方继续记录。</div>`}
       </section>
     </main>
-    <form id="update-form" class="composer"><textarea name="body" rows="1" maxlength="10000" required placeholder="记录后续反应…" aria-label="续记内容"></textarea><button type="submit">续记</button></form>
+    <form id="update-form" class="composer"><textarea name="body" rows="1" maxlength="10000" required placeholder="语音输入数据或记录后续反应…" aria-label="续记内容"></textarea><button type="submit">整理</button></form>
   </div>`;
 }
 
@@ -109,8 +114,9 @@ function render() {
 }
 
 function goFeed() {
+  if (view.screen === "detail" && history.state?.recordId) return history.back();
   view = { ...view, screen: "feed", recordId: null, menu: false };
-  history.replaceState(null, "", location.pathname);
+  history.replaceState({ screen: "feed" }, "", location.pathname);
   render();
 }
 
@@ -177,7 +183,7 @@ async function readBackup(file) {
 app.addEventListener("pointerdown", (event) => {
   const row = event.target.closest(".record-card")?.closest(".swipe-row");
   if (!row || !event.isPrimary || event.button !== 0) return;
-  swipeGesture = { row, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, startOffset: row.classList.contains("open") ? SWIPE_ACTION_WIDTH : 0, offset: 0, horizontal: null };
+  swipeGesture = { row, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, startOffset: row.classList.contains("open") ? SWIPE_ACTION_WIDTH : 0, offset: 0, horizontal: null, lastX: event.clientX, lastTime: performance.now(), velocity: 0 };
 });
 
 app.addEventListener("pointermove", (event) => {
@@ -190,6 +196,10 @@ app.addEventListener("pointermove", (event) => {
   }
   if (!swipeGesture.horizontal) return;
   event.preventDefault();
+  const now = performance.now();
+  swipeGesture.velocity = (swipeGesture.lastX - event.clientX) / Math.max(1, now - swipeGesture.lastTime);
+  swipeGesture.lastX = event.clientX;
+  swipeGesture.lastTime = now;
   swipeGesture.offset = Math.max(0, Math.min(SWIPE_ACTION_WIDTH, swipeGesture.startOffset + dx));
   swipeGesture.row.classList.add("dragging");
   swipeGesture.row.style.setProperty("--swipe-x", String(-swipeGesture.offset) + "px");
@@ -200,7 +210,7 @@ app.addEventListener("pointerup", (event) => {
   if (swipeGesture.horizontal) {
     swipeGesture.row.classList.remove("dragging");
     swipeGesture.row.style.removeProperty("--swipe-x");
-    swipeGesture.row.classList.toggle("open", swipeGesture.offset >= SWIPE_ACTION_WIDTH * .4);
+    swipeGesture.row.classList.toggle("open", swipeGesture.velocity > .35 || (swipeGesture.velocity >= -.35 && swipeGesture.offset >= SWIPE_ACTION_WIDTH * .4));
     suppressCardClickUntil = Date.now() + 350;
   }
   swipeGesture = null;
@@ -235,7 +245,7 @@ app.addEventListener("click", async (event) => {
   if (action === "toggle-search") { view.search = !view.search; view.menu = false; return render(); }
   if (action === "toggle-menu") { view.menu = !view.menu; view.search = false; return render(); }
   if (action === "new-record") return openRecordDialog();
-  if (action === "open-record") { view = { ...view, screen: "detail", recordId: target.dataset.id, menu: false }; history.replaceState(null, "", `#${target.dataset.id}`); return render(); }
+  if (action === "open-record") { view = { ...view, screen: "detail", recordId: target.dataset.id, menu: false }; history.pushState({ screen: "detail", recordId: target.dataset.id }, "", `#${target.dataset.id}`); return render(); }
   if (action === "back") return goFeed();
   if (action === "edit-record") return openRecordDialog(activeRecord());
   if (action === "export-backup") return exportBackup();
@@ -271,8 +281,12 @@ app.addEventListener("input", (event) => {
 app.addEventListener("submit", async (event) => {
   if (event.target.id !== "update-form") return;
   event.preventDefault();
-  const body = new FormData(event.target).get("body");
-  await updateCurrent((record) => addUpdate(record, body), "续记已保存");
+  const result = organizeMetrics(new FormData(event.target).get("body"));
+  organizedUpdateForm.elements.body.value = result.text;
+  organizeOriginal.textContent = result.original;
+  organizeSummary.textContent = result.recognized === METRIC_FIELDS.length ? "已识别全部 12 项指标，请核对数值后保存。" : result.recognized ? "已识别 " + result.recognized + "/12 项；请检查未识别项：" + result.missing.join("、") : "未识别到固定指标，已保留原文，请检查后保存。";
+  organizeSummary.classList.toggle("warning", result.recognized !== METRIC_FIELDS.length);
+  organizedUpdateDialog.showModal();
 });
 
 recordForm.addEventListener("submit", async (event) => {
@@ -307,11 +321,22 @@ updateEditForm.addEventListener("submit", async (event) => {
   } catch (error) { notify(error.message); }
 });
 
+organizedUpdateForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const body = new FormData(organizedUpdateForm).get("body").trim();
+  if (!body) return notify("请填写续记内容");
+  try {
+    await updateCurrent((record) => addUpdate(record, body), "续记已保存");
+    organizedUpdateDialog.close();
+  } catch (error) { notify(error.message); }
+});
+
 document.body.addEventListener("click", (event) => {
   const action = event.target.closest("[data-action]")?.dataset.action;
   if (action === "close-record") recordDialog.close();
   if (action === "close-reply") replyDialog.close();
   if (action === "close-update-edit") updateEditDialog.close();
+  if (action === "close-organized-update") organizedUpdateDialog.close();
   if (action === "cancel-import") { pendingImport = null; importDialog.close(); }
   if (action === "merge-import" && pendingImport) restoreImport(false);
   if (action === "replace-import" && pendingImport && confirm("确定完全替换当前全部记录？")) restoreImport(true);
@@ -335,8 +360,16 @@ async function restoreImport(replace) {
   notify("备份恢复完成");
 }
 
+window.addEventListener("popstate", () => {
+  document.querySelectorAll("dialog[open]").forEach((dialog) => dialog.close());
+  const recordId = history.state?.recordId;
+  view = recordId && records.some((record) => record.id === recordId) ? { ...view, screen: "detail", recordId, menu: false } : { ...view, screen: "feed", recordId: null, menu: false };
+  render();
+});
+
 async function start() {
   try {
+    history.replaceState({ screen: "feed" }, "", location.pathname);
     db = await openDatabase();
     await refresh();
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");

@@ -15,7 +15,7 @@
   color: var(--text);
 }
 * { box-sizing: border-box; }
-html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; background: var(--bg); }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; overscroll-behavior-y: none; background: var(--bg); }
 body { position: fixed; inset: 0; -webkit-tap-highlight-color: transparent; }
 #app { height: 100%; }
 button, input, textarea, select { font: inherit; }
@@ -45,11 +45,13 @@ button { cursor: pointer; }
 .backup-notice span { white-space: nowrap; font-weight: 600; }
 .record-card, .origin-card { padding: 17px; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); }
 .swipe-row { --swipe-x: 0px; position: relative; margin-bottom: 12px; overflow: hidden; border-radius: 22px; background: transparent; }
-.swipe-row .record-card { position: relative; z-index: 1; width: 100%; margin-bottom: 0; transform: translateX(var(--swipe-x)); transition: transform .2s ease; touch-action: pan-y; cursor: pointer; }
+.swipe-row .record-card { position: relative; z-index: 1; width: 100%; margin-bottom: 0; transform: translateX(var(--swipe-x)); transition: transform .22s cubic-bezier(.22, .61, .36, 1); will-change: transform; touch-action: pan-y; cursor: pointer; }
 .swipe-row.open, .swipe-row:focus-within { --swipe-x: -80px; }
 .swipe-row.dragging .record-card { transition: none; }
 .swipe-row:not(.open):not(.dragging) .record-card:active { transform: scale(.995); }
-.swipe-delete { position: absolute; z-index: 0; top: 0; right: 0; bottom: 0; width: 80px; border: 0; background: var(--danger); color: #fff; font-weight: 600; }
+.swipe-delete { position: absolute; z-index: 0; top: 8px; right: 8px; bottom: 8px; width: 64px; padding: 6px; border: 0; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; background: var(--danger); color: #fff; font-size: 12px; font-weight: 600; transition: transform .15s ease, filter .15s ease; }
+.swipe-delete svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.swipe-delete:active { transform: scale(.94); filter: brightness(.9); }
 .record-meta { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 11px; }
 .record-meta time, .timeline-item time { color: var(--muted); font-size: 12px; }
 .status { padding: 0; border: 0; background: transparent; color: var(--accent); font-size: 13px; font-weight: 600; }
@@ -106,6 +108,11 @@ dialog::backdrop { background: rgb(0 0 0 / 42%); backdrop-filter: blur(2px); }
 .field textarea, .field input, .field select { width: 100%; min-height: 46px; padding: 12px; border: 1px solid var(--line); border-radius: 13px; outline: 0; background: var(--surface); color: var(--text); font-size: 16px; font-weight: 400; }
 .field textarea { resize: vertical; line-height: 1.6; }
 .field textarea:focus, .field input:focus, .field select:focus { border-color: var(--accent); }
+.organize-summary { margin: 0 0 16px; padding: 11px 13px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); font-size: 13px; line-height: 1.55; }
+.organize-summary.warning { background: var(--soft); color: var(--muted); }
+.original-speech { margin-top: -4px; color: var(--muted); font-size: 13px; }
+.original-speech summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }
+.original-speech p { margin: 4px 0 12px; padding: 12px; border-radius: 12px; background: var(--soft); line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
 .field-row { display: grid; grid-template-columns: 1fr 1.6fr; gap: 12px; }
 .confirm-dialog { width: min(calc(100% - 32px), 480px); padding: 0; border: 0; border-radius: 20px; background: var(--surface); }
 .confirm-body { padding: 22px; }
