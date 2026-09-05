@@ -1,5 +1,5 @@
 export const BACKUP_APP = "xuji-local-experiment-log";
-export const BACKUP_VERSION = 1;
+export const BACKUP_VERSION = 2;
 export const STATUSES = {
   watching: "观察中",
   effective: "有效",
@@ -24,6 +24,7 @@ export function createRecord(input, now = new Date().toISOString()) {
     body,
     reason: text(input.reason, 10000),
     status,
+    focused: input.focused === true,
     tags: [...new Set((Array.isArray(input.tags) ? input.tags : String(input.tags || "").split(/\s+/)).map((tag) => text(tag, 30)).filter(Boolean))].slice(0, 10),
     createdAt,
     updatedAt: now,
@@ -39,10 +40,10 @@ export function addUpdate(record, body, now = new Date().toISOString()) {
 
 export function addReply(record, updateId, body, now = new Date().toISOString()) {
   const content = text(body, 10000);
-  if (!content) throw new Error("请填写追评内容");
+  if (!content) throw new Error("请填写补充内容");
   let found = false;
   const updates = record.updates.map((update) => update.id === updateId ? (found = true, { ...update, updatedAt: now, replies: [...update.replies, { id: createId(), body: content, createdAt: now, updatedAt: now }] }) : update);
-  if (!found) throw new Error("没有找到要追评的记录");
+  if (!found) throw new Error("没有找到要补充的记录");
   return { ...record, updatedAt: now, updates };
 }
 
@@ -63,14 +64,14 @@ export function formatBackupFilename(value = new Date()) {
   return `续记备份-${stamp}.json`;
 }
 
-export function validateRecord(record) {
+export function validateRecord(record, version = BACKUP_VERSION) {
   if (!record || typeof record !== "object" || typeof record.id !== "string" || !record.id || !text(record.body, 20000)) return false;
-  if (!Object.hasOwn(STATUSES, record.status) || !validDate(record.createdAt) || !validDate(record.updatedAt) || !Array.isArray(record.tags) || record.tags.length > 10 || !Array.isArray(record.updates)) return false;
+  if (!Object.hasOwn(STATUSES, record.status) || !validDate(record.createdAt) || !validDate(record.updatedAt) || !Array.isArray(record.tags) || record.tags.length > 10 || !Array.isArray(record.updates) || (version >= 2 && typeof record.focused !== "boolean")) return false;
   return record.updates.every((update) => update && typeof update.id === "string" && !!text(update.body, 10000) && validDate(update.createdAt) && validDate(update.updatedAt || update.createdAt) && Array.isArray(update.replies) && update.replies.every((reply) => reply && typeof reply.id === "string" && !!text(reply.body, 10000) && validDate(reply.createdAt)));
 }
 
 export function validateBackupShape(value) {
-  return value && value.app === BACKUP_APP && value.version === BACKUP_VERSION && validDate(value.exportedAt) && typeof value.checksum === "string" && Array.isArray(value.records) && value.records.length <= 100000 && value.records.every(validateRecord);
+  return value && value.app === BACKUP_APP && [1, BACKUP_VERSION].includes(value.version) && validDate(value.exportedAt) && typeof value.checksum === "string" && Array.isArray(value.records) && value.records.length <= 100000 && value.records.every((record) => validateRecord(record, value.version));
 }
 
 async function checksum(value, algorithm = "sha256") {
@@ -84,7 +85,8 @@ async function checksum(value, algorithm = "sha256") {
 }
 
 export async function createBackup(records, exportedAt = new Date().toISOString()) {
-  const base = { app: BACKUP_APP, version: BACKUP_VERSION, exportedAt, records: records.slice().sort((a, b) => a.id.localeCompare(b.id)) };
+  const normalized = records.map((record) => ({ ...record, focused: record.focused === true }));
+  const base = { app: BACKUP_APP, version: BACKUP_VERSION, exportedAt, records: normalized.sort((a, b) => a.id.localeCompare(b.id)) };
   return { ...base, checksum: await checksum(JSON.stringify(base)) };
 }
 
