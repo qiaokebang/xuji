@@ -6,6 +6,8 @@ const recordDialog = document.querySelector("#record-dialog");
 const recordForm = document.querySelector("#record-form");
 const replyDialog = document.querySelector("#reply-dialog");
 const replyForm = document.querySelector("#reply-form");
+const updateEditDialog = document.querySelector("#update-edit-dialog");
+const updateEditForm = document.querySelector("#update-edit-form");
 const importDialog = document.querySelector("#import-dialog");
 const backupInput = document.querySelector("#backup-input");
 const toast = document.querySelector("#toast");
@@ -247,9 +249,11 @@ app.addEventListener("click", async (event) => {
   if (action === "edit-update") {
     const record = activeRecord();
     const update = record.updates.find((item) => item.id === target.dataset.updateId);
-    const body = prompt("修改续记内容", update.body);
-    if (body === null) return;
-    return updateCurrent((current) => ({ ...current, updatedAt: new Date().toISOString(), updates: current.updates.map((item) => item.id === update.id ? { ...item, body: body.trim() || item.body, updatedAt: new Date().toISOString() } : item) }), "续记已修改");
+    updateEditForm.reset();
+    updateEditForm.elements.updateId.value = update.id;
+    updateEditForm.elements.body.value = update.body;
+    updateEditDialog.showModal();
+    return setTimeout(() => updateEditForm.elements.body.focus(), 50);
   }
   if (action === "delete-update" && confirm("删除这条续记及其全部追评？")) return updateCurrent((record) => ({ ...record, updatedAt: new Date().toISOString(), updates: record.updates.filter((item) => item.id !== target.dataset.updateId) }), "续记已删除");
   if (action === "delete-reply" && confirm("删除这条追评？")) return updateCurrent((record) => ({ ...record, updatedAt: new Date().toISOString(), updates: record.updates.map((item) => item.id === target.dataset.updateId ? { ...item, replies: item.replies.filter((reply) => reply.id !== target.dataset.replyId) } : item) }), "追评已删除");
@@ -291,10 +295,23 @@ replyForm.addEventListener("submit", async (event) => {
   try { await updateCurrent((record) => addReply(record, data.updateId, data.body), "追评已保存"); replyDialog.close(); } catch (error) { notify(error.message); }
 });
 
+updateEditForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const data = Object.fromEntries(new FormData(updateEditForm));
+  const body = data.body.trim();
+  if (!body) return notify("请填写续记内容");
+  const now = new Date().toISOString();
+  try {
+    await updateCurrent((record) => ({ ...record, updatedAt: now, updates: record.updates.map((update) => update.id === data.updateId ? { ...update, body, updatedAt: now } : update) }), "续记已修改");
+    updateEditDialog.close();
+  } catch (error) { notify(error.message); }
+});
+
 document.body.addEventListener("click", (event) => {
   const action = event.target.closest("[data-action]")?.dataset.action;
   if (action === "close-record") recordDialog.close();
   if (action === "close-reply") replyDialog.close();
+  if (action === "close-update-edit") updateEditDialog.close();
   if (action === "cancel-import") { pendingImport = null; importDialog.close(); }
   if (action === "merge-import" && pendingImport) restoreImport(false);
   if (action === "replace-import" && pendingImport && confirm("确定完全替换当前全部记录？")) restoreImport(true);

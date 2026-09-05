@@ -39,6 +39,13 @@
     </form>
   </dialog>
 
+  <dialog id="update-edit-dialog" class="sheet compact-sheet">
+    <form id="update-edit-form" method="dialog">
+      <header class="sheet-head"><button type="button" class="text-button" data-action="close-update-edit">取消</button><h2>修改续记</h2><button type="submit" class="text-button primary-text">保存</button></header>
+      <div class="sheet-body"><input type="hidden" name="updateId"><label class="field"><span>续记内容</span><textarea name="body" rows="4" maxlength="10000" required placeholder="修改续记内容"></textarea></label></div>
+    </form>
+  </dialog>
+
   <dialog id="import-dialog" class="confirm-dialog">
     <div class="confirm-body"><h2>恢复备份</h2><div id="import-summary"></div><p class="muted">“合并”会保留较新的同名记录；“完全替换”会先删除当前设备中的全部记录。</p><div class="confirm-actions"><button type="button" class="secondary-button" data-action="cancel-import">取消</button><button type="button" class="secondary-button" data-action="replace-import">完全替换</button><button type="button" class="primary-button" data-action="merge-import">合并恢复</button></div></div>
   </dialog>

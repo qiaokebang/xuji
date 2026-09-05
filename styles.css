@@ -44,7 +44,7 @@ button { cursor: pointer; }
 .backup-notice { width: 100%; min-height: 46px; margin: 0 0 12px; padding: 10px 13px; border: 0; border-radius: 13px; display: flex; justify-content: space-between; gap: 8px; align-items: center; background: var(--accent-soft); color: var(--accent); text-align: left; font-size: 13px; }
 .backup-notice span { white-space: nowrap; font-weight: 600; }
 .record-card, .origin-card { padding: 17px; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); }
-.swipe-row { --swipe-x: 0px; position: relative; margin-bottom: 12px; overflow: hidden; border-radius: 22px; background: var(--danger); }
+.swipe-row { --swipe-x: 0px; position: relative; margin-bottom: 12px; overflow: hidden; border-radius: 22px; background: transparent; }
 .swipe-row .record-card { position: relative; z-index: 1; width: 100%; margin-bottom: 0; transform: translateX(var(--swipe-x)); transition: transform .2s ease; touch-action: pan-y; cursor: pointer; }
 .swipe-row.open, .swipe-row:focus-within { --swipe-x: -80px; }
 .swipe-row.dragging .record-card { transition: none; }
@@ -96,10 +96,11 @@ button { cursor: pointer; }
 .secondary-button { background: var(--soft); color: var(--text); }
 dialog { color: var(--text); }
 dialog::backdrop { background: rgb(0 0 0 / 42%); backdrop-filter: blur(2px); }
-.sheet { width: min(100%, 720px); max-width: none; max-height: 92dvh; margin: auto auto 0; padding: 0 0 env(safe-area-inset-bottom); border: 0; border-radius: 24px 24px 0 0; background: var(--bg); }
-.sheet-head { min-height: 62px; padding: 8px 17px; display: grid; grid-template-columns: 60px 1fr 60px; align-items: center; border-bottom: 1px solid var(--line); text-align: center; }
+.sheet { width: min(100%, 720px); max-width: none; max-height: 92dvh; margin: auto auto 0; padding: 0 0 env(safe-area-inset-bottom); overflow: hidden; border: 0; border-radius: 24px 24px 0 0; background: var(--bg); }
+.sheet form { max-height: calc(92dvh - env(safe-area-inset-bottom)); display: flex; flex-direction: column; overflow: hidden; }
+.sheet-head { flex: none; min-height: 62px; padding: 8px 17px; display: grid; grid-template-columns: 60px 1fr 60px; align-items: center; border-bottom: 1px solid var(--line); text-align: center; }
 .sheet-head h2 { margin: 0; font-size: 17px; }
-.sheet-body { padding: 18px 16px 28px; }
+.sheet-body { min-height: 0; padding: 18px 16px 28px; overflow-y: auto; overscroll-behavior-y: none; -webkit-overflow-scrolling: touch; }
 .field { display: grid; gap: 8px; margin-bottom: 18px; color: var(--text); font-size: 14px; font-weight: 600; }
 .field small { color: var(--muted); font-weight: 400; }
 .field textarea, .field input, .field select { width: 100%; min-height: 46px; padding: 12px; border: 1px solid var(--line); border-radius: 13px; outline: 0; background: var(--surface); color: var(--text); font-size: 16px; font-weight: 400; }
