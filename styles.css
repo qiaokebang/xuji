@@ -196,7 +196,7 @@ dialog::backdrop { background: rgb(0 0 0 / 42%); backdrop-filter: blur(2px); }
 [data-theme="warm"] .record-card.focused .status { color: #fffefa; }
 [data-theme="warm"] .record-card.focused .status::before { background: #f0c75e; }
 [data-theme="warm"] .record-card.focused .record-foot { border-color: rgb(255 255 255 / 24%); }
-[data-theme="warm"] .swipe-row { border-radius: 28px; background: var(--surface); }
+[data-theme="warm"] .swipe-row { border-radius: 28px; background: transparent; }
 [data-theme="warm"] .swipe-focus { background: #f0c75e; color: #fff; }
 [data-theme="warm"] .fab { right: max(18px, calc((100vw - 430px) / 2 + 18px)); border: 4px solid var(--surface); background: var(--warm-red); color: #fffefa; }
 [data-theme="warm"] .detail-shell { background: var(--bg); }
