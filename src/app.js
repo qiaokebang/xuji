@@ -42,6 +42,7 @@ const localDateTime = (value = new Date()) => new Date(value.getTime() - value.g
 function applyTheme() {
   document.documentElement.dataset.theme = theme;
   document.querySelector('meta[name="theme-color"]').content = theme === "warm" ? "#11110f" : "#f6f5f1";
+  document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').content = theme === "warm" ? "black" : "default";
 }
 
 applyTheme();
